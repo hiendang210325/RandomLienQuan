@@ -1,0 +1,6 @@
+{
+  "name": "Fate Weaver",
+  "description": "A premium fantasy gacha/random character spin website UI built with React.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
