@@ -1,12 +1,54 @@
 import React, { useState } from 'react';
-import { Character } from '../types';
+import { Character, CharacterFormPayload } from '../types';
 import { motion } from 'motion/react';
 import { PlusCircle, Image as ImageIcon, Sparkles, UserPlus, X, Save } from 'lucide-react';
 
+const MAX_IMAGE_DIMENSION = 900;
+const IMAGE_QUALITY = 0.86;
+
+const readFileAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+const loadImage = (src: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Cannot load selected image'));
+    image.src = src;
+  });
+
+const optimizeImageFile = async (file: File) => {
+  const dataUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(dataUrl);
+  const scale = Math.min(
+    1,
+    MAX_IMAGE_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight),
+  );
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+
+  if (!context) {
+    return dataUrl;
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  context.drawImage(image, 0, 0, width, height);
+
+  return canvas.toDataURL('image/webp', IMAGE_QUALITY);
+};
+
 interface Props {
   initialData?: Character;
-  onAdd: (c: Character) => void;
-  onUpdate: (c: Character) => void;
+  onAdd: (c: CharacterFormPayload) => Promise<void> | void;
+  onUpdate: (c: CharacterFormPayload) => Promise<void> | void;
   onClose: () => void;
 }
 
@@ -15,31 +57,55 @@ export default function AdminCharacterForm({ initialData, onAdd, onUpdate, onClo
   const [imageUrl, setImageUrl] = useState(initialData?.imageUrl || '');
   const [categories, setCategories] = useState<string[]>(initialData?.categories || []);
   const [categoryInput, setCategoryInput] = useState('');
+  const [imageError, setImageError] = useState('');
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setImageError('');
+      setIsProcessingImage(true);
+
+      try {
+        setImageUrl(await optimizeImageFile(file));
+      } catch (error) {
+        console.error('Image processing failed', error);
+        setImageError('Không đọc được ảnh đã chọn.');
+      } finally {
+        setIsProcessingImage(false);
+      }
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !imageUrl) return;
-    
-    if (initialData) {
-      onUpdate({ ...initialData, name, imageUrl, categories });
-    } else {
-      onAdd({ id: Date.now().toString(), name, imageUrl, categories });
+    if (!name || !imageUrl || isProcessingImage) return;
+
+    setIsSubmitting(true);
+
+    try {
+      if (initialData) {
+        await onUpdate({
+          ...initialData,
+          name,
+          imageUrl,
+          categories,
+        });
+      } else {
+        await onAdd({
+          name,
+          imageUrl,
+          categories,
+        });
+      }
+
+      setName('');
+      setImageUrl('');
+      onClose();
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setName('');
-    setImageUrl('');
-    onClose();
   };
 
   return (
@@ -93,6 +159,9 @@ export default function AdminCharacterForm({ initialData, onAdd, onUpdate, onClo
               className="w-full bg-[#050508] border border-cyan-900/50 rounded-xl p-2 text-slate-200 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400/50 transition-all font-sans file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-cyan-950 file:text-cyan-400 hover:file:bg-cyan-900"
               required={!initialData}
             />
+            {imageError && (
+              <p className="mt-2 text-xs text-red-400">{imageError}</p>
+            )}
           </div>
           
           <div>
@@ -144,11 +213,16 @@ export default function AdminCharacterForm({ initialData, onAdd, onUpdate, onClo
 
           <button 
             type="submit" 
-            className="w-full relative group overflow-hidden bg-gradient-to-r from-cyan-600 to-purple-600 border-none text-white font-bold py-4 px-6 rounded-xl mt-6 transition-all font-fantasy tracking-[0.2em] uppercase"
+            disabled={isSubmitting || isProcessingImage}
+            className="w-full relative group overflow-hidden bg-gradient-to-r from-cyan-600 to-purple-600 border-none text-white font-bold py-4 px-6 rounded-xl mt-6 transition-all font-fantasy tracking-[0.2em] uppercase disabled:opacity-60"
           >
             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out"></div>
             <span className="relative z-10 flex items-center justify-center gap-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
-              {initialData ? (
+              {isProcessingImage ? (
+                <><ImageIcon size={20} /> Đang xử lý ảnh</>
+              ) : isSubmitting ? (
+                <><Save size={20} /> Đang lưu</>
+              ) : initialData ? (
                 <><Save size={20} /> Cập nhật</>
               ) : (
                 <><PlusCircle size={20} /> Khởi tạo</>

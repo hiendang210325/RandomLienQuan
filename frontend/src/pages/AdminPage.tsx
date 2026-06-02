@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Character } from '../types';
+import { Character, CharacterFormPayload } from '../types';
 import AdminCharacterForm from '../components/AdminCharacterForm';
 import AdminCharacterList from '../components/AdminCharacterList';
 import AdminGalleryForm from '../components/AdminGalleryForm';
@@ -32,7 +32,7 @@ export default function AdminPage({ characters, setCharacters, onLogout }: Props
     }
   }, [activeTab]);
 
-  const handleAdd = async (char: Character) => {
+  const handleAdd = async (char: CharacterFormPayload) => {
     try {
       const res = await fetch('/api/characters', {
         method: 'POST',
@@ -44,15 +44,20 @@ export default function AdminPage({ characters, setCharacters, onLogout }: Props
         setCharacters(prev => [newChar, ...prev]);
       } else {
         const errText = await res.text();
-        alert(`Thêm nhân vật thất bại. Trạng thái: ${res.status}. Phản hồi: ${errText}`);
+        throw new Error(`Thêm nhân vật thất bại. Trạng thái: ${res.status}. Phản hồi: ${errText}`);
       }
     } catch (error) {
       console.error('Thêm nhân vật thất bại', error);
-      alert('Lỗi mạng khi thêm nhân vật.');
+      alert(error instanceof Error ? error.message : 'Lỗi mạng khi thêm nhân vật.');
+      throw error;
     }
   };
 
-  const handleUpdate = async (char: Character) => {
+  const handleUpdate = async (char: CharacterFormPayload) => {
+    if (!char.id) {
+      throw new Error('Character id is required');
+    }
+
     try {
       const res = await fetch(`/api/characters/${char.id}`, {
         method: 'PUT',
@@ -62,9 +67,14 @@ export default function AdminPage({ characters, setCharacters, onLogout }: Props
       if (res.ok) {
         const updatedChar = await res.json();
         setCharacters(prev => prev.map(c => c.id === updatedChar.id ? updatedChar : c));
+      } else {
+        const errText = await res.text();
+        throw new Error(`Cập nhật nhân vật thất bại. Trạng thái: ${res.status}. Phản hồi: ${errText}`);
       }
     } catch (error) {
       console.error('Cập nhật nhân vật thất bại', error);
+      alert(error instanceof Error ? error.message : 'Lỗi mạng khi cập nhật nhân vật.');
+      throw error;
     }
   };
 

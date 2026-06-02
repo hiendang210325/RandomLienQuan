@@ -7,6 +7,14 @@ export interface Character {
   showInSpin?: boolean;
 }
 
+export interface CharacterFormPayload {
+  id?: string;
+  name: string;
+  imageUrl: string;
+  categories?: string[];
+  showInSpin?: boolean;
+}
+
 export interface GalleryItem {
   id: string;
   name: string;
