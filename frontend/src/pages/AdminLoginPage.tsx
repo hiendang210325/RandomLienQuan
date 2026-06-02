@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { AdminSession, loginAdmin } from "../services/authApi";
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
 export default function AdminLoginPage({ onLogin }: Props) {
   const [email, setEmail] = useState("admin@gmail.com");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -59,14 +61,26 @@ export default function AdminLoginPage({ onLogin }: Props) {
             <label className="block text-[10px] uppercase tracking-widest text-[#c5a059]/70 mb-1">
               Mật khẩu
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full bg-[#050505] border border-[#c5a059]/30 rounded p-3 text-[#e0d8cf] outline-none focus:border-[#c5a059] transition-colors font-sans"
-              autoComplete="current-password"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="w-full bg-[#050505] border border-[#c5a059]/30 rounded py-3 pl-3 pr-12 text-[#e0d8cf] outline-none focus:border-[#c5a059] transition-colors font-sans"
+                autoComplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((isVisible) => !isVisible)}
+                className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded text-[#c5a059]/70 transition-colors hover:text-[#f3d081] focus:outline-none focus:ring-1 focus:ring-[#c5a059]/60"
+                aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                aria-pressed={showPassword}
+                title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {error && (
