@@ -19,6 +19,7 @@ export default function AdminPage({ characters, setCharacters, onLogout }: Props
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'General' | 'Gallery' | 'Videos'>('General');
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
+  const [pendingSpinIds, setPendingSpinIds] = useState<Record<string, boolean>>({});
 
   const [galleries, setGalleries] = useState<import('../types').GalleryItem[]>([]);
   const [editingGallery, setEditingGallery] = useState<import('../types').GalleryItem | null>(null);
@@ -79,6 +80,14 @@ export default function AdminPage({ characters, setCharacters, onLogout }: Props
   };
 
   const handleToggleShowInSpin = async (char: Character, showInSpin: boolean) => {
+    if (pendingSpinIds[char.id]) {
+      return;
+    }
+
+    const previousShowInSpin = char.showInSpin === true;
+    setPendingSpinIds(prev => ({ ...prev, [char.id]: true }));
+    setCharacters(prev => prev.map(c => c.id === char.id ? { ...c, showInSpin } : c));
+
     try {
       const res = await fetch(`/api/characters/${char.id}`, {
         method: 'PUT',
@@ -91,11 +100,18 @@ export default function AdminPage({ characters, setCharacters, onLogout }: Props
         setCharacters(prev => prev.map(c => c.id === updatedChar.id ? updatedChar : c));
       } else {
         const errText = await res.text();
-        alert(`Cập nhật hiển thị vòng quay thất bại. Trạng thái: ${res.status}. Phản hồi: ${errText}`);
+        throw new Error(`Cập nhật hiển thị vòng quay thất bại. Trạng thái: ${res.status}. Phản hồi: ${errText}`);
       }
     } catch (error) {
+      setCharacters(prev => prev.map(c => c.id === char.id ? { ...c, showInSpin: previousShowInSpin } : c));
       console.error('Cập nhật hiển thị vòng quay thất bại', error);
-      alert('Lỗi mạng khi cập nhật hiển thị vòng quay.');
+      alert(error instanceof Error ? error.message : 'Lỗi mạng khi cập nhật hiển thị vòng quay.');
+    } finally {
+      setPendingSpinIds(prev => {
+        const next = { ...prev };
+        delete next[char.id];
+        return next;
+      });
     }
   };
 
@@ -276,6 +292,7 @@ export default function AdminPage({ characters, setCharacters, onLogout }: Props
                   setIsModalOpen(true);
                 }}
                 onToggleShowInSpin={handleToggleShowInSpin}
+                pendingSpinIds={pendingSpinIds}
                 onAddClick={() => {
                   setEditingCharacter(null);
                   setIsModalOpen(true);

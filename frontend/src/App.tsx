@@ -34,7 +34,7 @@ export default function App() {
 
   useEffect(() => {
     const fetchCharacters = () => {
-      fetch('/api/characters')
+      fetch('/api/characters', { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {

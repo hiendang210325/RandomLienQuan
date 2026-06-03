@@ -8,6 +8,7 @@ interface Props {
   onDelete: (id: string) => void;
   onEdit: (c: Character) => void;
   onToggleShowInSpin: (c: Character, showInSpin: boolean) => void;
+  pendingSpinIds?: Record<string, boolean>;
   onAddClick: () => void;
 }
 
@@ -32,7 +33,7 @@ const getCategoryColor = (category?: string) => {
   return colors[charCodeSum % colors.length];
 };
 
-export default function AdminCharacterList({ characters, onDelete, onEdit, onToggleShowInSpin, onAddClick }: Props) {
+export default function AdminCharacterList({ characters, onDelete, onEdit, onToggleShowInSpin, pendingSpinIds = {}, onAddClick }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState("Tất cả");
   const [currentPage, setCurrentPage] = useState(1);
@@ -121,7 +122,10 @@ export default function AdminCharacterList({ characters, onDelete, onEdit, onTog
       
       <div className="space-y-3 overflow-y-auto pr-2 flex-1 custom-scrollbar relative z-10">
         <AnimatePresence>
-          {paginatedCharacters.map((char) => (
+          {paginatedCharacters.map((char) => {
+            const isSpinTogglePending = pendingSpinIds[char.id] === true;
+
+            return (
             <motion.div
               key={char.id}
               initial={{ opacity: 0, y: 10 }}
@@ -159,9 +163,15 @@ export default function AdminCharacterList({ characters, onDelete, onEdit, onTog
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => onToggleShowInSpin(char, char.showInSpin !== true)}
+                  onClick={() => {
+                    if (!isSpinTogglePending) {
+                      onToggleShowInSpin(char, char.showInSpin !== true);
+                    }
+                  }}
+                  disabled={isSpinTogglePending}
                   aria-pressed={char.showInSpin === true}
-                  className={`relative h-9 w-16 rounded-full border transition-all ${
+                  aria-busy={isSpinTogglePending}
+                  className={`relative h-9 w-16 rounded-full border transition-all disabled:cursor-wait disabled:opacity-80 ${
                     char.showInSpin === true
                       ? 'border-emerald-400/60 bg-emerald-500/20 shadow-[0_0_14px_rgba(16,185,129,0.2)]'
                       : 'border-slate-700 bg-slate-900/60'
@@ -194,7 +204,8 @@ export default function AdminCharacterList({ characters, onDelete, onEdit, onTog
                 </button>
               </div>
             </motion.div>
-          ))}
+            );
+          })}
         </AnimatePresence>
         
         {filteredCharacters.length === 0 && (

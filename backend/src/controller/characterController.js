@@ -44,6 +44,7 @@ const notifyClients = () => {
 const getCharacters = async (_req, res, next) => {
   try {
     const characters = await Character.find().sort({ createdAt: -1 });
+    res.set("Cache-Control", "no-store");
     res.json(characters);
   } catch (error) {
     next(error);
@@ -91,8 +92,8 @@ const updateCharacter = async (req, res, next) => {
       throw createError("Character not found", 404);
     }
 
-    notifyClients();
     res.json(character);
+    notifyClients();
   } catch (error) {
     next(error);
   }
