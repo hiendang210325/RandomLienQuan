@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Character, GalleryItem } from "./types";
 import AdminPage from "./pages/AdminPage";
 import AdminLoginPage from "./pages/AdminLoginPage";
@@ -31,17 +31,78 @@ export default function App() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [galleries, setGalleries] = useState<GalleryItem[]>([]);
   const [backgroundVideoUrl, setBackgroundVideoUrl] = useState<string>('');
+  const spinFetchOverridesRef = useRef<Record<string, boolean>>({});
+
+  const setSpinFetchOverride = (id: string, showInSpin: boolean) => {
+    spinFetchOverridesRef.current = {
+      ...spinFetchOverridesRef.current,
+      [id]: showInSpin,
+    };
+  };
+
+  const clearSpinFetchOverride = (id: string) => {
+    if (!Object.prototype.hasOwnProperty.call(spinFetchOverridesRef.current, id)) {
+      return;
+    }
+
+    const nextOverrides = { ...spinFetchOverridesRef.current };
+    delete nextOverrides[id];
+    spinFetchOverridesRef.current = nextOverrides;
+  };
+
+  const mergeSpinFetchOverrides = (serverCharacters: Character[]) => {
+    const overrides = spinFetchOverridesRef.current;
+    let nextOverrides = overrides;
+
+    const mergedCharacters = serverCharacters.map((character) => {
+      if (!Object.prototype.hasOwnProperty.call(overrides, character.id)) {
+        return character;
+      }
+
+      const overrideValue = overrides[character.id];
+
+      if (character.showInSpin === overrideValue) {
+        if (nextOverrides === overrides) {
+          nextOverrides = { ...overrides };
+        }
+
+        delete nextOverrides[character.id];
+        return character;
+      }
+
+      return { ...character, showInSpin: overrideValue };
+    });
+
+    if (nextOverrides !== overrides) {
+      spinFetchOverridesRef.current = nextOverrides;
+    }
+
+    return mergedCharacters;
+  };
 
   useEffect(() => {
+    let fetchRequestId = 0;
+    let refreshTimer: number | undefined;
+
     const fetchCharacters = () => {
+      const requestId = ++fetchRequestId;
+
       fetch('/api/characters', { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
-          if (Array.isArray(data)) {
-            setCharacters(data);
+          if (Array.isArray(data) && requestId === fetchRequestId) {
+            setCharacters(mergeSpinFetchOverrides(data));
           }
         })
         .catch(console.error);
+    };
+
+    const scheduleFetchCharacters = () => {
+      if (refreshTimer !== undefined) {
+        window.clearTimeout(refreshTimer);
+      }
+
+      refreshTimer = window.setTimeout(fetchCharacters, 150);
     };
 
     fetchCharacters();
@@ -49,7 +110,7 @@ export default function App() {
     const sse = new EventSource('/api/characters/stream');
     sse.onmessage = (e) => {
       if (e.data === 'update') {
-        fetchCharacters();
+        scheduleFetchCharacters();
       }
     };
 
@@ -72,6 +133,10 @@ export default function App() {
       .catch(console.error);
 
     return () => {
+      if (refreshTimer !== undefined) {
+        window.clearTimeout(refreshTimer);
+      }
+
       sse.close();
     };
   }, []);
@@ -116,6 +181,8 @@ export default function App() {
             <AdminPage
               characters={characters}
               setCharacters={setCharacters}
+              setSpinFetchOverride={setSpinFetchOverride}
+              clearSpinFetchOverride={clearSpinFetchOverride}
               onLogout={handleAdminLogout}
             />
           ) : (

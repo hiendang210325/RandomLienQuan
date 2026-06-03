@@ -92,8 +92,8 @@ const updateCharacter = async (req, res, next) => {
       throw createError("Character not found", 404);
     }
 
+    res.once("finish", notifyClients);
     res.json(character);
-    notifyClients();
   } catch (error) {
     next(error);
   }

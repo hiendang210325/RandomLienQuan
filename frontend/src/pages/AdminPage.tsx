@@ -11,10 +11,18 @@ import { Menu, X, Users, Settings, BarChart3, Shield, LogOut } from 'lucide-reac
 interface Props {
   characters: Character[];
   setCharacters: React.Dispatch<React.SetStateAction<Character[]>>;
+  setSpinFetchOverride: (id: string, showInSpin: boolean) => void;
+  clearSpinFetchOverride: (id: string) => void;
   onLogout?: () => void;
 }
 
-export default function AdminPage({ characters, setCharacters, onLogout }: Props) {
+export default function AdminPage({
+  characters,
+  setCharacters,
+  setSpinFetchOverride,
+  clearSpinFetchOverride,
+  onLogout,
+}: Props) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'General' | 'Gallery' | 'Videos'>('General');
@@ -86,6 +94,7 @@ export default function AdminPage({ characters, setCharacters, onLogout }: Props
 
     const previousShowInSpin = char.showInSpin === true;
     setPendingSpinIds(prev => ({ ...prev, [char.id]: true }));
+    setSpinFetchOverride(char.id, showInSpin);
     setCharacters(prev => prev.map(c => c.id === char.id ? { ...c, showInSpin } : c));
 
     try {
@@ -103,6 +112,7 @@ export default function AdminPage({ characters, setCharacters, onLogout }: Props
         throw new Error(`Cập nhật hiển thị vòng quay thất bại. Trạng thái: ${res.status}. Phản hồi: ${errText}`);
       }
     } catch (error) {
+      clearSpinFetchOverride(char.id);
       setCharacters(prev => prev.map(c => c.id === char.id ? { ...c, showInSpin: previousShowInSpin } : c));
       console.error('Cập nhật hiển thị vòng quay thất bại', error);
       alert(error instanceof Error ? error.message : 'Lỗi mạng khi cập nhật hiển thị vòng quay.');
